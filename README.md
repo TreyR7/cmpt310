@@ -12,3 +12,52 @@ Tally of each animal type (ex. given 1000 images of animals, how many are cows? 
 The simplest working version of our system is to be able to interpret images of farm animals and to classify them through the K-Nearest Neighbours algorithm. We will start by limiting the classifications to just cows, pigs, chickens, sheep, goats, and turkeys. Our AI system in its minimal form will still be able to classify a smaller subset of farm animals. This will still accomplish our goals set out in the problem statement.
 
 ![alt text](diagram.png)
+
+## Current prototype
+
+The first working baseline uses:
+
+1. OpenCV to resize every image to 64x64 pixels.
+2. HOG features for edges and shape.
+3. HSV colour histograms for colour information.
+4. A scaled, distance-weighted K-Nearest Neighbours classifier.
+5. A stratified train/test split, classification report, confusion matrix, and
+   prediction tally.
+
+The included dataset currently contains 2,000 images for each of five classes:
+`chicken`, `cow`, `goat`, `horse`, and `sheep`. It does not currently contain
+the proposed `pig` or `turkey` classes.
+
+## Setup and run
+
+Python 3.10 or newer is recommended.
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python main.py train
+```
+
+The default run samples 500 images per class so that the KNN experiment is
+reasonable on a laptop. Use the full 10,000-image dataset with:
+
+```powershell
+python main.py train --max-per-class 0
+```
+
+After training, classify one image or every image in a directory:
+
+```powershell
+python main.py predict path\to\image.png
+python main.py predict path\to\folder
+```
+
+The trained model is written to `models/animal_knn.joblib`.
+
+## Scope note
+
+This prototype classifies one label per image. Counting several animals inside
+one camera frame requires object detection (finding each animal's bounding
+box), which is a useful later extension but is separate from this KNN image
+classification milestone.

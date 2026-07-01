@@ -1,24 +1,39 @@
+"""OpenCV image loading and preprocessing."""
+
+from pathlib import Path
+
 import cv2 as cv
-import os
 
-# preprocess a single image
-def preprocess_image(path, size=(128, 128)):
-  # load image from path
-  image = cv.imread(path)
-  # raise error of image is not found
-  if image is None:
-    raise ValueError(f"Could not load image at {path}")
-  # return resized image
-  return cv.resize(image, size)
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
-def preprocess_directory(directory, size=(128, 128)):
-  # preprocess all images in folder, return list of (image, filename) pairs
-  results = []
-  for filename in os.listdir(directory):
-    path = os.path.join(directory, filename)
-    try:
-      image = preprocess_image(path, size)
-      results.append((image, filename))
-    except ValueError as e:
-      print(f"Skipping {filename}: {e}")
-  return results
+
+def preprocess_image(path, size=(64, 64)):
+    """Load an image as BGR and resize it to a consistent size."""
+    path = Path(path)
+    image = cv.imread(str(path), cv.IMREAD_COLOR)
+    if image is None:
+        raise ValueError(f"Could not load image at {path}")
+    return cv.resize(image, size, interpolation=cv.INTER_AREA)
+
+
+def image_paths(directory):
+    """Return supported image paths in a directory in deterministic order."""
+    directory = Path(directory)
+    if not directory.is_dir():
+        raise ValueError(f"Image directory does not exist: {directory}")
+    return sorted(
+        path
+        for path in directory.iterdir()
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+    )
+
+
+def preprocess_directory(directory, size=(64, 64)):
+    """Preprocess every readable image and return (image, filename) pairs."""
+    results = []
+    for path in image_paths(directory):
+        try:
+            results.append((preprocess_image(path, size), path.name))
+        except ValueError as error:
+            print(f"Skipping {path.name}: {error}")
+    return results
