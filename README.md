@@ -1,63 +1,134 @@
-# CMPT 310 Group Project - Farm Animal Classification System
-Our project idea is to train and develop an AI system that can correctly identify some common farm animals. This is technology that could potentially be useful to farmers who need automated livestock inventory and transit tracking. Picture this: you’re an owner of a large commercial farm in British Columbia. Every time a truckload of animals arrive, you need to count and sort the animals. Normally, a human worker would have to count and sort the animals manually. This method of counting is subject to human error and takes a long time as well. Instead of a farmworker manually counting every individual animal, we can install an overhead security camera over the unloading ramps to capture live feeds of incoming animals, feeding the frames into our AI system. Then, the system can automatically increment the number of animals for each type. Obviously, machine error will still exist, but we hope to minimize them. Implementing this system on an actual security camera is out of the scope of our project and this course. We will only be designing and training our system to identify farm animals based on images. Nonetheless, this scenario demonstrates how our system could theoretically be expanded upon to work in more practical applications such as the aforementioned scenario. 
+# Smart Livestock Gate
 
-## Inputs
-Images of animals (cows, pigs, chickens, sheep, goats, turkeys, etc). 
+Smart Livestock Gate is a computer-vision project for detecting, classifying,
+tracking, and counting farm animals as they pass through a virtual gate. The
+current working milestone is a HOG and colour-histogram KNN species classifier
+with a command-line interface, Flask API, and React client.
 
-## Outputs
-Animal label (what kind of animal is depicted in this image?).
-Tally of each animal type (ex. given 1000 images of animals, how many are cows? pigs? chickens?)
+![High-level system architecture](docs/architecture.png)
 
-## Minimum Viable System 
-The simplest working version of our system is to be able to interpret images of farm animals and to classify them through the K-Nearest Neighbours algorithm. We will start by limiting the classifications to just cows, pigs, chickens, sheep, goats, and turkeys. Our AI system in its minimal form will still be able to classify a smaller subset of farm animals. This will still accomplish our goals set out in the problem statement.
+## Repository layout
 
-![alt text](diagram.png)
+```text
+.
+|-- .github/workflows/       Continuous integration
+|-- artifacts/               Generated models, predictions, and reports
+|-- configs/                 Version-controlled experiment configuration
+|-- data/
+|   |-- raw/                 Immutable source datasets
+|   |-- interim/             Partially processed data
+|   `-- processed/           Model-ready data and annotations
+|-- docs/                    Architecture and design documentation
+|-- frontend/                React and Vite web client
+|-- notebooks/               Exploratory analysis and evaluation
+|-- scripts/                 Reproducible workflow automation
+|-- src/smart_livestock_gate/
+|   |-- api/                 Flask application
+|   |-- baseline/            HOG, colour features, and KNN classifier
+|   |-- counting/            Counting utilities
+|   `-- data/                Data loading and preprocessing code
+|-- tests/                   Automated Python tests
+`-- pyproject.toml           Python package and tool configuration
+```
 
-## Current prototype
+Keeping importable application logic under `src/` prevents accidental imports
+from the repository root. Datasets and generated outputs are separated from
+code so future detection, tracking, line-crossing, and evaluation components
+can be added without mixing concerns.
 
-The first working baseline uses:
+## Current dataset
 
-1. OpenCV to resize every image to 64x64 pixels.
-2. HOG features for edges and shape.
-3. HSV colour histograms for colour information.
-4. A scaled, distance-weighted K-Nearest Neighbours classifier.
-5. A stratified train/test split, classification report, confusion matrix, and
-   prediction tally.
+The supplied Animal Counting Dataset is located at
+`data/raw/animal_counting_dataset/`. It contains 2,000 images for each of five
+classes: `chicken`, `cow`, `goat`, `horse`, and `sheep`. The proposed `pig` and
+`turkey` classes are not currently included.
 
-The included dataset currently contains 2,000 images for each of five classes:
-`chicken`, `cow`, `goat`, `horse`, and `sheep`. It does not currently contain
-the proposed `pig` or `turkey` classes.
+Large datasets should be fetched reproducibly and kept out of future commits.
+See `data/README.md` and `scripts/README.md` for the intended conventions.
 
-## Setup and run
+## Backend setup
 
-Python 3.10 or newer is recommended.
+Python 3.10 or newer is required.
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python main.py train
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
 ```
 
-The default run samples 500 images per class so that the KNN experiment is
-reasonable on a laptop. Use the full 10,000-image dataset with:
+The optional deep-learning and tracking dependencies from the full project
+specification can be installed with:
 
 ```powershell
-python main.py train --max-per-class 0
+python -m pip install -e ".[dev,vision]"
 ```
 
-After training, classify one image or every image in a directory:
+## Train and predict
+
+The default training run samples 500 images per class so the KNN experiment is
+reasonable on a laptop:
 
 ```powershell
-python main.py predict path\to\image.png
-python main.py predict path\to\folder
+livestock-gate train
 ```
 
-The trained model is written to `models/animal_knn.joblib`.
+Use all supplied images by setting the per-class limit to zero:
 
-## Scope note
+```powershell
+livestock-gate train --max-per-class 0
+```
 
-This prototype classifies one label per image. Counting several animals inside
-one camera frame requires object detection (finding each animal's bounding
-box), which is a useful later extension but is separate from this KNN image
-classification milestone.
+Classify an image or every supported image in a directory:
+
+```powershell
+livestock-gate predict path\to\image.png
+livestock-gate predict path\to\folder
+```
+
+The trained baseline is saved to `artifacts/models/animal_knn.joblib`. You can
+also run the CLI without installing its console command:
+
+```powershell
+python -m smart_livestock_gate train
+```
+
+## API and web client
+
+Start the backend from an activated Python environment:
+
+```powershell
+flask --app smart_livestock_gate.api run --debug --port 5000
+```
+
+In a second terminal, start the web client:
+
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
+
+Copy `frontend/.env.example` to `frontend/.env` only when the API is hosted at a
+different address.
+
+## Quality checks
+
+```powershell
+ruff check src tests
+pytest
+
+cd frontend
+npm run lint
+npm run build
+```
+
+The same checks run in GitHub Actions for pushes and pull requests.
+
+## Scope
+
+The current prototype assigns one label to each input image. The full project
+will add multi-animal detection, persistent tracking IDs, directional
+line-crossing counts, annotated video and structured logs, error decomposition,
+and domain-shift evaluation. Those features are not represented as complete in
+the current codebase.

@@ -1,4 +1,41 @@
+# Python bytecode and tool caches
 __pycache__/
-venv/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and build outputs
 .venv/
-models/
+venv/
+build/
+dist/
+*.egg-info/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Generated data and model outputs
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/animal_counting_dataset/
+!data/raw/animal_counting_dataset/**
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+artifacts/models/*
+!artifacts/models/.gitkeep
+artifacts/predictions/*
+!artifacts/predictions/.gitkeep
+artifacts/reports/*
+!artifacts/reports/.gitkeep
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
