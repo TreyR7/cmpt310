@@ -1,4 +1,6 @@
 import argparse
+import json
+from dataclasses import asdict
 from pathlib import Path
 
 from smart_livestock_gate.baseline.classifier import (
@@ -8,8 +10,19 @@ from smart_livestock_gate.baseline.classifier import (
     predict_paths,
     save_model,
 )
-from smart_livestock_gate.config import DEFAULT_DATASET_PATH, DEFAULT_MODEL_PATH
+from smart_livestock_gate.config import (
+    CATTLE_EYE_VIEW_PATH,
+    DEFAULT_DATASET_PATH,
+    DEFAULT_MODEL_PATH,
+    PROCESSED_DATA_DIR,
+)
 from smart_livestock_gate.counting.tally import tally_predictions
+from smart_livestock_gate.data.cattle_eye_view import (
+    YOLO_TASKS,
+    export_tracking_manifest,
+    prepare_yolo_dataset,
+    validate_dataset,
+)
 from smart_livestock_gate.data.preprocessing import IMAGE_EXTENSIONS, image_paths
 
 
@@ -54,6 +67,36 @@ def predict(args: argparse.Namespace) -> None:
         print(f"{label}: {count}")
 
 
+def validate_cattle_eye_view(args: argparse.Namespace) -> None:
+    """Validate the extracted CattleEyeView release."""
+    report = validate_dataset(
+        CATTLE_EYE_VIEW_PATH,
+        validate_labels=not args.skip_labels,
+        label_sample_limit=None if args.deep_labels else 25,
+    )
+    print(json.dumps(report.to_dict(), indent=2))
+    if not report.valid:
+        raise SystemExit(1)
+
+
+def export_cattle_eye_view(args: argparse.Namespace) -> None:
+    """Export normalized tracking and sequence manifests."""
+    output = args.output or PROCESSED_DATA_DIR / "cattle_eye_view"
+    results = export_tracking_manifest(CATTLE_EYE_VIEW_PATH, output)
+    print(json.dumps(results, indent=2))
+
+
+def prepare_cattle_eye_view(args: argparse.Namespace) -> None:
+    """Build an Ultralytics-compatible task directory using links or copies."""
+    prepared = prepare_yolo_dataset(
+        CATTLE_EYE_VIEW_PATH,
+        args.task,
+        args.output,
+        link_mode=args.link_mode,
+    )
+    print(json.dumps(asdict(prepared), indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Classify farm animal images using OpenCV features and KNN."
@@ -80,6 +123,59 @@ def build_parser() -> argparse.ArgumentParser:
     predict_parser.add_argument("input")
     predict_parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
     predict_parser.set_defaults(func=predict)
+
+    dataset_parser = subparsers.add_parser(
+        "dataset",
+        help="validate and prepare CattleEyeView data",
+    )
+    dataset_subparsers = dataset_parser.add_subparsers(
+        dest="dataset_command",
+        required=True,
+    )
+    validate_parser = dataset_subparsers.add_parser(
+        "validate",
+        help="validate frames, videos, labels, tracking IDs, and counts",
+    )
+    validate_parser.add_argument(
+        "--skip-labels",
+        action="store_true",
+        help="skip the slower native YOLO label-content checks",
+    )
+    validate_parser.add_argument(
+        "--deep-labels",
+        action="store_true",
+        help="parse every polygon/keypoint value instead of sampling each split",
+    )
+    validate_parser.set_defaults(func=validate_cattle_eye_view)
+
+    export_parser = dataset_subparsers.add_parser(
+        "export",
+        help="export normalized tracking JSONL and sequence metadata",
+    )
+    export_parser.add_argument(
+        "--output",
+        type=Path,
+        help="output directory; defaults to data/processed/cattle_eye_view",
+    )
+    export_parser.set_defaults(func=export_cattle_eye_view)
+
+    prepare_parser = dataset_subparsers.add_parser(
+        "prepare-yolo",
+        help="build a valid Ultralytics image/label layout",
+    )
+    prepare_parser.add_argument("task", choices=YOLO_TASKS)
+    prepare_parser.add_argument(
+        "--output",
+        type=Path,
+        help="output directory; defaults to <root>/prepared/<task>",
+    )
+    prepare_parser.add_argument(
+        "--link-mode",
+        choices=("hardlink", "copy"),
+        default="hardlink",
+        help="hardlink avoids duplicating the large image data",
+    )
+    prepare_parser.set_defaults(func=prepare_cattle_eye_view)
     return parser
 
 

@@ -46,6 +46,46 @@ classes: `chicken`, `cow`, `goat`, `horse`, and `sheep`. The proposed `pig` and
 Large datasets should be fetched reproducibly and kept out of future commits.
 See `data/README.md` and `scripts/README.md` for the intended conventions.
 
+### CattleEyeView integration
+
+The extracted CattleEyeView release is stored inside the project at
+`data/raw/cattle_eye_view/`. It contains 14 videos, 30,703 frames, 753 tracked
+cattle, body/head detections, 24-keypoint poses, segmentation labels, and
+sequence-level crossing counts. The directory is ignored by Git because it is
+too large for source control.
+
+Validate the full release:
+
+```powershell
+livestock-gate dataset validate
+```
+
+The normal validation checks every file association and samples annotation
+contents. Use `--deep-labels` to parse every coordinate in every segmentation
+polygon, or `--skip-labels` for a quick structural check.
+
+Export a corrected tracking manifest and count metadata:
+
+```powershell
+livestock-gate dataset export
+```
+
+This writes generated files to `data/processed/cattle_eye_view/`. The loader
+normalizes a known inconsistency in the source COCO `image_id` values by using
+the annotation `file_name`, which matches the actual frames.
+
+Prepare an Ultralytics-compatible dataset without copying the large images:
+
+```powershell
+livestock-gate dataset prepare-yolo detect
+livestock-gate dataset prepare-yolo detect_head
+livestock-gate dataset prepare-yolo pose
+livestock-gate dataset prepare-yolo segment
+```
+
+Each command creates hardlinks, a manifest CSV, and a local `dataset.yaml`
+under `data/raw/cattle_eye_view/prepared/<task>/`.
+
 ## Backend setup
 
 Python 3.10 or newer is required.
