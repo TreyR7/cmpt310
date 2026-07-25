@@ -5,6 +5,10 @@ tracking, and counting farm animals as they pass through a virtual gate. The
 current working milestone is a HOG and colour-histogram KNN species classifier
 with a command-line interface, Flask API, and React client.
 
+> **Setting up the project after cloning it?** Follow the complete
+> [group setup guide](docs/group-setup.md) for dataset placement, model setup,
+> dependency installation, and frontend/backend startup instructions.
+
 ![High-level system architecture](docs/architecture.png)
 
 ## Repository layout
