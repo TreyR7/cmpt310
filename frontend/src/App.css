@@ -290,6 +290,195 @@ h2 {
   font-weight: 750;
 }
 
+.detection-lab {
+  padding: 34px;
+}
+
+.detection-heading {
+  align-items: flex-start;
+}
+
+.section-copy {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.model-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.model-metrics .metric-card {
+  min-height: 96px;
+  background: var(--forest-soft);
+}
+
+.model-metrics .metric-card strong::after {
+  content: "%";
+  margin-left: 2px;
+  font-size: 17px;
+}
+
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.example-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface-soft);
+}
+
+.example-image {
+  position: relative;
+  overflow: hidden;
+  background: #17211b;
+}
+
+.example-image img {
+  width: 100%;
+  display: block;
+}
+
+.box-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.detection-box {
+  position: absolute;
+  border: 2px solid;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.detection-box.prediction {
+  border-color: #72f29c;
+}
+
+.detection-box.truth {
+  border-color: #ffd166;
+}
+
+.box-label {
+  position: absolute;
+  left: -2px;
+  bottom: 100%;
+  padding: 2px 5px;
+  color: #102018;
+  background: #72f29c;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.truth .box-label {
+  background: #ffd166;
+}
+
+.example-content {
+  padding: 16px;
+}
+
+.example-meta,
+.example-counts,
+.example-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.example-meta > div {
+  display: grid;
+  gap: 2px;
+}
+
+.example-meta span,
+.inference-time,
+.example-counts {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.inference-time {
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: white;
+  white-space: nowrap;
+}
+
+.example-counts {
+  justify-content: flex-start;
+  margin: 12px 0;
+}
+
+.example-error {
+  margin-bottom: 10px;
+  color: #9a382e;
+  font-size: 12px;
+}
+
+.example-actions button {
+  flex: 1;
+  padding: 9px 11px;
+  border: 1px solid var(--forest);
+  border-radius: 9px;
+  color: white;
+  background: var(--forest);
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.example-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.example-actions .secondary-button {
+  color: var(--forest);
+  background: transparent;
+}
+
+.explanation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.explanation-grid article {
+  padding: 18px;
+  border-top: 3px solid var(--forest);
+  background: var(--surface-soft);
+}
+
+.explanation-grid article > span {
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.explanation-grid h3 {
+  margin: 18px 0 8px;
+  font-size: 16px;
+}
+
+.explanation-grid p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 footer {
   padding: 24px 0 36px;
   border-top: 1px solid var(--line);
@@ -299,7 +488,9 @@ footer {
 
 @media (max-width: 900px) {
   .metrics-grid,
-  .task-grid {
+  .task-grid,
+  .model-metrics,
+  .explanation-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -346,7 +537,10 @@ footer {
 
   .metrics-grid,
   .task-grid,
-  .pipeline-list {
+  .pipeline-list,
+  .model-metrics,
+  .example-grid,
+  .explanation-grid {
     grid-template-columns: 1fr;
   }
 

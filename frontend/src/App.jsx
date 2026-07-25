@@ -50,29 +50,128 @@ function Metric({ label, value }) {
   );
 }
 
+function DetectionExampleCard({ example, modelReady }) {
+  const [prediction, setPrediction] = useState(null);
+  const [showTruth, setShowTruth] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const runDetection = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/detection/examples/${example.id}/predict`,
+        { method: "POST" },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Detection failed");
+      setPrediction(data);
+      setShowTruth(false);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const boxes = showTruth
+    ? example.ground_truth.map((item) => ({ ...item, confidence: null }))
+    : prediction?.detections || [];
+
+  return (
+    <article className="example-card">
+      <div className="example-image">
+        <img
+          src={`${API_BASE}${example.image_url}`}
+          alt={`CattleEyeView frame ${example.frame} from ${example.sequence}`}
+        />
+        <div className="box-layer" aria-hidden="true">
+          {boxes.map((detection, index) => {
+            const [left, top, right, bottom] = detection.box;
+            return (
+              <span
+                className={`detection-box ${showTruth ? "truth" : "prediction"}`}
+                key={`${left}-${top}-${index}`}
+                style={{
+                  left: `${left * 100}%`,
+                  top: `${top * 100}%`,
+                  width: `${(right - left) * 100}%`,
+                  height: `${(bottom - top) * 100}%`,
+                }}
+              >
+                <span className="box-label">
+                  {detection.label}
+                  {detection.confidence != null && ` ${Math.round(detection.confidence * 100)}%`}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div className="example-content">
+        <div className="example-meta">
+          <div>
+            <strong>{example.sequence}</strong>
+            <span>{example.frame}</span>
+          </div>
+          {prediction && (
+            <span className="inference-time">{prediction.inference_ms} ms</span>
+          )}
+        </div>
+        <div className="example-counts">
+          <span>Annotated: {example.ground_truth_count}</span>
+          <span>Detected: {prediction?.count ?? "—"}</span>
+        </div>
+        {error && <p className="example-error">{error}</p>}
+        <div className="example-actions">
+          <button onClick={runDetection} disabled={!modelReady || loading}>
+            {loading ? "Running AI…" : prediction ? "Run again" : "Run detector"}
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() => setShowTruth((current) => !current)}
+          >
+            {showTruth ? "Show prediction" : "Show annotation"}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function App() {
   const [dashboard, setDashboard] = useState({
     loading: true,
     error: "",
     health: null,
     status: null,
+    examples: [],
   });
 
   const refresh = useCallback(async (signal) => {
     setDashboard((current) => ({ ...current, loading: true, error: "" }));
     try {
-      const [healthResponse, statusResponse] = await Promise.all([
+      const [healthResponse, statusResponse, examplesResponse] = await Promise.all([
         fetch(`${API_BASE}/api/health`, { signal }),
         fetch(`${API_BASE}/api/status`, { signal }),
+        fetch(`${API_BASE}/api/detection/examples`, { signal }),
       ]);
-      if (!healthResponse.ok || !statusResponse.ok) {
+      if (!healthResponse.ok || !statusResponse.ok || !examplesResponse.ok) {
         throw new Error("The backend returned an unexpected response.");
       }
-      const [health, status] = await Promise.all([
+      const [health, status, examplePayload] = await Promise.all([
         healthResponse.json(),
         statusResponse.json(),
+        examplesResponse.json(),
       ]);
-      setDashboard({ loading: false, error: "", health, status });
+      setDashboard({
+        loading: false,
+        error: "",
+        health,
+        status,
+        examples: examplePayload.examples,
+      });
     } catch (error) {
       if (error.name !== "AbortError") {
         setDashboard({
@@ -80,6 +179,7 @@ function App() {
           error: `Cannot reach the API at ${API_BASE}. Start the Flask backend and try again.`,
           health: null,
           status: null,
+          examples: [],
         });
       }
     }
@@ -93,6 +193,8 @@ function App() {
 
   const status = dashboard.status;
   const summary = status?.dataset.summary || {};
+  const detector = status?.models.cattle_detector;
+  const detectorMetrics = detector?.test_metrics || {};
   const action = NEXT_STEPS[status?.pipeline.next_step] || NEXT_STEPS.install_dataset;
   const pipeline = [
     ["Dataset", status?.pipeline.dataset_ready],
@@ -193,6 +295,72 @@ function App() {
                     <Badge ready={task.prepared}>{task.prepared ? "Prepared" : "Labels available"}</Badge>
                   </article>
                 ))}
+              </div>
+            </section>
+
+            <section className="section-block detection-lab" aria-labelledby="examples-heading">
+              <div className="section-heading detection-heading">
+                <div>
+                  <p className="eyebrow">Held-out test frames</p>
+                  <h2 id="examples-heading">See what the detector sees</h2>
+                  <p className="section-copy">
+                    Run the trained model on examples it did not train on. Green boxes are
+                    AI predictions; amber boxes are the human annotations used for comparison.
+                  </p>
+                </div>
+                <Badge ready={detector?.ready}>
+                  {detector?.ready ? `${detector.architecture} ready` : "Training required"}
+                </Badge>
+              </div>
+
+              {detector?.ready && Object.keys(detectorMetrics).length > 0 && (
+                <div className="model-metrics">
+                  <Metric label="test precision" value={Math.round(detectorMetrics.precision * 1000) / 10} />
+                  <Metric label="test recall" value={Math.round(detectorMetrics.recall * 1000) / 10} />
+                  <Metric label="mAP at 50% IoU" value={Math.round(detectorMetrics.map50 * 1000) / 10} />
+                  <Metric label="mAP 50–95" value={Math.round(detectorMetrics.map50_95 * 1000) / 10} />
+                </div>
+              )}
+
+              <div className="example-grid">
+                {dashboard.examples.map((example) => (
+                  <DetectionExampleCard
+                    example={example}
+                    key={example.id}
+                    modelReady={detector?.ready}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="section-block" aria-labelledby="explanation-heading">
+              <div className="section-heading compact">
+                <div>
+                  <p className="eyebrow">Inside one prediction</p>
+                  <h2 id="explanation-heading">How the AI is working</h2>
+                </div>
+              </div>
+              <div className="explanation-grid">
+                <article>
+                  <span>01</span>
+                  <h3>Prepare the frame</h3>
+                  <p>The image is resized with its aspect ratio preserved and converted into tensors.</p>
+                </article>
+                <article>
+                  <span>02</span>
+                  <h3>Extract visual features</h3>
+                  <p>Learned convolutional layers respond to edges, textures, limbs, and cattle silhouettes.</p>
+                </article>
+                <article>
+                  <span>03</span>
+                  <h3>Propose cattle boxes</h3>
+                  <p>The detection head predicts locations and a cattle confidence across multiple scales.</p>
+                </article>
+                <article>
+                  <span>04</span>
+                  <h3>Filter overlaps</h3>
+                  <p>Low-confidence and duplicate boxes are removed before the final count is returned.</p>
+                </article>
               </div>
             </section>
           </>

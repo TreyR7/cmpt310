@@ -2,7 +2,9 @@
 
 React and Vite dashboard for the CattleEyeView detection, tracking, and counting
 pipeline. It currently reports backend, dataset, annotation, preparation, and
-model readiness through `/api/health` and `/api/status`.
+model readiness through `/api/health` and `/api/status`. Its detector lab runs
+the trained model on allowlisted held-out examples, overlays prediction boxes,
+and compares them with human annotations.
 
 ## Development
 
