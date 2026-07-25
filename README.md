@@ -86,6 +86,30 @@ livestock-gate dataset prepare-yolo segment
 Each command creates hardlinks, a manifest CSV, and a local `dataset.yaml`
 under `data/raw/cattle_eye_view/prepared/<task>/`.
 
+### Train the cattle detector
+
+Install the optional vision dependencies and prepare the detection layout:
+
+```powershell
+python -m pip install -e ".[dev,vision]"
+livestock-gate dataset prepare-yolo detect
+```
+
+On an NVIDIA system, install the appropriate CUDA-enabled PyTorch wheel from
+the official PyTorch selector. Confirm `torch.cuda.is_available()` is true
+before starting a long run.
+
+Run the reproducible detector experiment:
+
+```powershell
+livestock-gate train-detector
+```
+
+The default experiment fine-tunes a nano detector for 20 epochs at 512 px,
+evaluates the best checkpoint on the official test split, and writes local
+weights, plots, and a machine-readable metrics report under `artifacts/`.
+Those generated files are intentionally ignored by Git.
+
 ## Backend setup
 
 Python 3.10 or newer is required.
@@ -151,6 +175,21 @@ npm run dev
 
 Copy `frontend/.env.example` to `frontend/.env` only when the API is hosted at a
 different address.
+
+The dashboard uses two read-only integration endpoints:
+
+- `GET /api/health` checks backend connectivity.
+- `GET /api/status` reports dataset, annotation, and model readiness without
+  exposing machine-specific paths.
+- `GET /api/detection/examples` lists allowlisted held-out frames.
+- `GET /api/detection/examples/<id>/image` serves an allowlisted local frame.
+- `POST /api/detection/examples/<id>/predict` returns normalized cattle boxes,
+  confidence scores, counts, and inference time.
+
+The frontend includes a detector lab for comparing AI predictions with human
+annotations on held-out examples. Tracking, virtual-gate counting,
+asynchronous video jobs, and result playback are laid out with acceptance
+criteria in [the implementation roadmap](docs/roadmap.md).
 
 ## Quality checks
 

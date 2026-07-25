@@ -11,6 +11,10 @@ from smart_livestock_gate.baseline.classifier import (
     save_model,
 )
 from smart_livestock_gate.config import (
+    ARTIFACTS_DIR,
+    CATTLE_DETECTION_DATASET_YAML,
+    CATTLE_DETECTOR_MODEL_PATH,
+    CATTLE_DETECTOR_REPORT_PATH,
     CATTLE_EYE_VIEW_PATH,
     DEFAULT_DATASET_PATH,
     DEFAULT_MODEL_PATH,
@@ -24,6 +28,10 @@ from smart_livestock_gate.data.cattle_eye_view import (
     validate_dataset,
 )
 from smart_livestock_gate.data.preprocessing import IMAGE_EXTENSIONS, image_paths
+from smart_livestock_gate.detection.detector import (
+    DetectorTrainingConfig,
+    train_detector,
+)
 
 
 def train(args: argparse.Namespace) -> None:
@@ -95,6 +103,28 @@ def prepare_cattle_eye_view(args: argparse.Namespace) -> None:
         link_mode=args.link_mode,
     )
     print(json.dumps(asdict(prepared), indent=2))
+
+
+def train_cattle_detector(args: argparse.Namespace) -> None:
+    """Train and evaluate the first cattle detection model."""
+    report = train_detector(
+        DetectorTrainingConfig(
+            dataset_yaml=args.dataset,
+            output_model=args.output_model,
+            report_path=args.report,
+            runs_dir=args.runs_dir,
+            pretrained_model=args.pretrained_model,
+            epochs=args.epochs,
+            image_size=args.image_size,
+            batch_size=args.batch_size,
+            device=args.device,
+            workers=args.workers,
+            patience=args.patience,
+            seed=args.seed,
+            run_name=args.run_name,
+        )
+    )
+    print(json.dumps(report, indent=2))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -176,6 +206,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="hardlink avoids duplicating the large image data",
     )
     prepare_parser.set_defaults(func=prepare_cattle_eye_view)
+
+    detector_parser = subparsers.add_parser(
+        "train-detector",
+        help="fine-tune and test a cattle detector on CattleEyeView",
+    )
+    detector_parser.add_argument(
+        "--dataset",
+        type=Path,
+        default=CATTLE_DETECTION_DATASET_YAML,
+    )
+    detector_parser.add_argument("--pretrained-model", default="yolo11n.pt")
+    detector_parser.add_argument("--epochs", type=int, default=20)
+    detector_parser.add_argument("--image-size", type=int, default=512)
+    detector_parser.add_argument("--batch-size", type=int, default=4)
+    detector_parser.add_argument("--device", default="auto")
+    detector_parser.add_argument("--workers", type=int, default=2)
+    detector_parser.add_argument("--patience", type=int, default=8)
+    detector_parser.add_argument("--seed", type=int, default=42)
+    detector_parser.add_argument("--run-name", default="cattle_detector")
+    detector_parser.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=ARTIFACTS_DIR / "training",
+    )
+    detector_parser.add_argument(
+        "--output-model",
+        type=Path,
+        default=CATTLE_DETECTOR_MODEL_PATH,
+    )
+    detector_parser.add_argument(
+        "--report",
+        type=Path,
+        default=CATTLE_DETECTOR_REPORT_PATH,
+    )
+    detector_parser.set_defaults(func=train_cattle_detector)
     return parser
 
 

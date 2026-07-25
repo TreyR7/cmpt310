@@ -33,6 +33,10 @@ artifacts/predictions/*
 !artifacts/predictions/.gitkeep
 artifacts/reports/*
 !artifacts/reports/.gitkeep
+artifacts/training/
+
+# Pretrained checkpoints downloaded by Ultralytics at runtime
+yolo*.pt
 
 # Editors and operating systems
 .idea/
