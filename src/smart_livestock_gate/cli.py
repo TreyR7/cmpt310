@@ -16,6 +16,8 @@ from smart_livestock_gate.config import (
     CATTLE_DETECTOR_MODEL_PATH,
     CATTLE_DETECTOR_REPORT_PATH,
     CATTLE_EYE_VIEW_PATH,
+    CATTLE_TRACKING_MANIFEST_PATH,
+    CATTLE_TRACKING_REPORT_PATH,
     DEFAULT_DATASET_PATH,
     DEFAULT_MODEL_PATH,
     PROCESSED_DATA_DIR,
@@ -32,6 +34,7 @@ from smart_livestock_gate.detection.detector import (
     DetectorTrainingConfig,
     train_detector,
 )
+from smart_livestock_gate.tracking.runner import TrackingRunConfig, run_tracking
 
 
 def train(args: argparse.Namespace) -> None:
@@ -122,6 +125,27 @@ def train_cattle_detector(args: argparse.Namespace) -> None:
             patience=args.patience,
             seed=args.seed,
             run_name=args.run_name,
+        )
+    )
+    print(json.dumps(report, indent=2))
+
+
+def track_video(args: argparse.Namespace) -> None:
+    """Run the cattle tracker over one sequence and optionally score it."""
+    manifest = args.manifest if args.evaluate else None
+    report = run_tracking(
+        TrackingRunConfig(
+            sequence=args.sequence,
+            dataset_root=CATTLE_EYE_VIEW_PATH,
+            model_path=args.model,
+            report_path=args.report,
+            manifest_path=manifest,
+            confidence=args.confidence,
+            image_size=args.image_size,
+            device=args.device,
+            iou_threshold=args.iou_threshold,
+            max_age=args.max_age,
+            min_hits=args.min_hits,
         )
     )
     print(json.dumps(report, indent=2))
@@ -241,6 +265,38 @@ def build_parser() -> argparse.ArgumentParser:
         default=CATTLE_DETECTOR_REPORT_PATH,
     )
     detector_parser.set_defaults(func=train_cattle_detector)
+
+    track_parser = subparsers.add_parser(
+        "track",
+        help="run the cattle tracker over one CattleEyeView sequence",
+    )
+    track_parser.add_argument("sequence", help='e.g. "01.mp4"')
+    track_parser.add_argument("--model", type=Path, default=CATTLE_DETECTOR_MODEL_PATH)
+    track_parser.add_argument("--confidence", type=float, default=0.25)
+    track_parser.add_argument("--image-size", type=int, default=512)
+    track_parser.add_argument("--device", default="auto")
+    track_parser.add_argument("--iou-threshold", type=float, default=0.3)
+    track_parser.add_argument("--max-age", type=int, default=5)
+    track_parser.add_argument("--min-hits", type=int, default=3)
+    track_parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=CATTLE_TRACKING_MANIFEST_PATH,
+        help="ground-truth manifest for scoring; see --no-evaluate",
+    )
+    track_parser.add_argument(
+        "--no-evaluate",
+        dest="evaluate",
+        action="store_false",
+        default=True,
+        help="skip scoring against the ground-truth manifest",
+    )
+    track_parser.add_argument(
+        "--report",
+        type=Path,
+        default=CATTLE_TRACKING_REPORT_PATH,
+    )
+    track_parser.set_defaults(func=track_video)
     return parser
 
 

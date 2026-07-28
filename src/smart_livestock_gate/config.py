@@ -22,3 +22,9 @@ CATTLE_DETECTOR_REPORT_PATH = (
 CATTLE_DETECTION_DATASET_YAML = (
     CATTLE_EYE_VIEW_PATH / "prepared" / "detect" / "dataset.yaml"
 )
+CATTLE_TRACKING_MANIFEST_PATH = (
+    PROCESSED_DATA_DIR / "cattle_eye_view" / "tracking_manifest.jsonl"
+)
+CATTLE_TRACKING_REPORT_PATH = (
+    ARTIFACTS_DIR / "reports" / "cattle_tracking" / "metrics.json"
+)
