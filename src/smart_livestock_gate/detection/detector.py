@@ -160,24 +160,24 @@ def clear_model_cache() -> None:
     _load_model.cache_clear()
 
 
-def predict_image(
+def predict_frame(
     model_path: Path,
-    image_path: Path,
+    frame: Any,
     *,
     confidence: float = 0.25,
     image_size: int = 512,
     device: str = "auto",
 ) -> dict[str, Any]:
-    """Run cattle detection and return JSON-ready normalized boxes."""
+    """Run cattle detection on an in-memory BGR frame and return JSON-ready
+    normalized boxes. Same return shape as predict_image."""
     if not model_path.is_file():
         raise FileNotFoundError(f"Detector weights not found: {model_path}")
-    image = cv2.imread(str(image_path))
-    if image is None:
-        raise ValueError(f"Could not read example image: {image_path}")
-    height, width = image.shape[:2]
+    if frame is None:
+        raise ValueError("Frame is empty")
+    height, width = frame.shape[:2]
     started = time.perf_counter()
     results = _load_model(str(model_path.resolve())).predict(
-        source=image,
+        source=frame,
         conf=confidence,
         imgsz=image_size,
         device=resolve_device(device),
@@ -208,3 +208,24 @@ def predict_image(
         "inference_ms": elapsed_ms,
         "confidence_threshold": confidence,
     }
+
+
+def predict_image(
+    model_path: Path,
+    image_path: Path,
+    *,
+    confidence: float = 0.25,
+    image_size: int = 512,
+    device: str = "auto",
+) -> dict[str, Any]:
+    """Run cattle detection and return JSON-ready normalized boxes."""
+    image = cv2.imread(str(image_path))
+    if image is None:
+        raise ValueError(f"Could not read example image: {image_path}")
+    return predict_frame(
+        model_path,
+        image,
+        confidence=confidence,
+        image_size=image_size,
+        device=device,
+    )
