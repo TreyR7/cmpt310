@@ -114,6 +114,23 @@ evaluates the best checkpoint on the official test split, and writes local
 weights, plots, and a machine-readable metrics report under `artifacts/`.
 Those generated files are intentionally ignored by Git.
 
+### Track cattle across frames
+
+Run the SORT-style tracker (Kalman filter and Hungarian matching) over one
+CattleEyeView sequence's extracted frames:
+
+```powershell
+livestock-gate track 01.mp4
+```
+
+The tracker turns the detector's per-frame boxes into persistent track IDs,
+then scores the result against the normalized ground-truth manifest produced
+by `livestock-gate dataset export` (identity switches, track fragmentation,
+missed detections, and false positives). Pass `--no-evaluate` to skip
+scoring, or a different sequence name (`02.mp4`, `03.mp4`, ...) to track
+another video. A machine-readable report, including every predicted box, is
+written under `artifacts/reports/cattle_tracking/`.
+
 ## Backend setup
 
 Python 3.10 or newer is required.
@@ -210,8 +227,8 @@ The same checks run in GitHub Actions for pushes and pull requests.
 
 ## Scope
 
-The current prototype assigns one label to each input image. The full project
-will add multi-animal detection, persistent tracking IDs, directional
-line-crossing counts, annotated video and structured logs, error decomposition,
-and domain-shift evaluation. Those features are not represented as complete in
-the current codebase.
+The current prototype assigns one label to each input image. Multi-animal
+detection and persistent tracking IDs are implemented; directional
+line-crossing counts, annotated video and structured logs, error
+decomposition, and domain-shift evaluation are not yet represented as
+complete in the current codebase.

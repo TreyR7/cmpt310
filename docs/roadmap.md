@@ -32,17 +32,26 @@ different computer.
 Acceptance criteria: a fresh authorized installation can prepare data, train a
 detector, and reproduce the reported test metrics using documented commands.
 
-## Milestone 2: tracking and identity evaluation
+## Milestone 2: tracking and identity evaluation (mostly implemented)
 
-1. Connect detector outputs to a multi-object tracker.
+1. Connect detector outputs to a multi-object tracker. Implemented as a
+   SORT-style tracker (Kalman filter and Hungarian/IoU matching) in
+   `src/smart_livestock_gate/tracking/`.
 2. Normalize every output to a shared schema: frame, bounding box, confidence,
-   track ID, and timestamp.
+   track ID, and timestamp. Implemented as `TrackedBox` in `tracking/schema.py`.
 3. Evaluate persistent identities against the normalized CattleEyeView tracking
-   manifest, including identity switches and track fragmentation.
-4. Export a short annotated test clip for qualitative review.
+   manifest, including identity switches and track fragmentation. Implemented
+   in `tracking/evaluate.py` and exposed via `livestock-gate track <sequence>`.
+4. Export a short annotated test clip for qualitative review. Not yet
+   implemented; the tracker currently reports metrics only, with no drawn
+   overlay video.
 
 Acceptance criteria: each visible animal receives a stable ID across frames,
 and tracking failures are measured rather than judged only by a demo video.
+The measurement half is done; a first real run reported 41 predicted tracks
+against 34 ground-truth cattle for one sequence, with 4 identity switches and
+1 fragmentation, so the remaining tracker-quality work is tuning and/or an
+appearance-based re-identification cost, not the measurement pipeline itself.
 
 ## Milestone 3: virtual-gate counting
 
