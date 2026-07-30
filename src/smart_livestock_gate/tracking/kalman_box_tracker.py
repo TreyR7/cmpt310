@@ -78,6 +78,21 @@ class KalmanBoxTracker:
     def reset_ids(cls) -> None:
         cls._next_id = 1
 
+    def lifecycle_state(self, min_hits: int, max_age: int) -> str:
+        """Return the explicit lifecycle label for this track.
+
+        ``removed`` once missing longer than ``max_age``; ``lost`` while missing
+        but still recoverable; ``confirmed`` once seen ``min_hits`` times (with a
+        startup grace window); otherwise ``tentative``.
+        """
+        if self._time_since_update > max_age:
+            return "removed"
+        if self._time_since_update > 0:
+            return "lost"
+        if self._hits >= min_hits or self._age <= min_hits:
+            return "confirmed"
+        return "tentative"
+
     def predict(self) -> np.ndarray:
         """Advance state one frame and return the predicted xyxy box."""
         if self._filter.x[6] + self._filter.x[2] <= 0:

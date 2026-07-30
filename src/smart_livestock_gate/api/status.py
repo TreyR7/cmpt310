@@ -38,6 +38,7 @@ def build_project_status(
     report_path: Path,
     detector_model_path: Path,
     detector_report_path: Path | None = None,
+    tracking_metrics_path: Path | None = None,
 ) -> dict[str, Any]:
     """Build a path-free status payload suitable for the web frontend."""
     paths = CattleEyeViewPaths.from_root(dataset_root)
@@ -70,6 +71,9 @@ def build_project_status(
         }
 
     detector_ready = detector_model_path.is_file()
+    tracking_ready = (
+        tracking_metrics_path is not None and tracking_metrics_path.is_file()
+    )
     dataset_ready = installed and validation == "valid"
     if not installed:
         next_step = "install_dataset"
@@ -81,8 +85,10 @@ def build_project_status(
         next_step = "prepare_detection_data"
     elif not detector_ready:
         next_step = "train_detector"
-    else:
+    elif not tracking_ready:
         next_step = "build_tracking_pipeline"
+    else:
+        next_step = "build_counting"
 
     warnings = report.get("warnings", []) if report else []
     errors = report.get("errors", []) if report else []
@@ -119,9 +125,9 @@ def build_project_status(
         "pipeline": {
             "dataset_ready": dataset_ready,
             "detector_ready": detector_ready,
-            "tracking_ready": False,
+            "tracking_ready": tracking_ready,
             "counting_ready": False,
-            "video_inference_ready": False,
+            "video_inference_ready": tracking_ready,
             "next_step": next_step,
         },
     }

@@ -34,7 +34,12 @@ from smart_livestock_gate.detection.detector import (
     DetectorTrainingConfig,
     train_detector,
 )
-from smart_livestock_gate.tracking.runner import TrackingRunConfig, run_tracking
+from smart_livestock_gate.tracking.runner import (
+    TrackingRunConfig,
+    TrackVideoConfig,
+    run_track_video,
+    run_tracking,
+)
 
 
 def train(args: argparse.Namespace) -> None:
@@ -130,8 +135,8 @@ def train_cattle_detector(args: argparse.Namespace) -> None:
     print(json.dumps(report, indent=2))
 
 
-def track_video(args: argparse.Namespace) -> None:
-    """Run the cattle tracker over one sequence and optionally score it."""
+def track_sequence_command(args: argparse.Namespace) -> None:
+    """Run the cattle tracker over one named CattleEyeView sequence."""
     manifest = args.manifest if args.evaluate else None
     report = run_tracking(
         TrackingRunConfig(
@@ -139,6 +144,7 @@ def track_video(args: argparse.Namespace) -> None:
             dataset_root=CATTLE_EYE_VIEW_PATH,
             model_path=args.model,
             report_path=args.report,
+            annotated_path=args.annotated,
             manifest_path=manifest,
             confidence=args.confidence,
             image_size=args.image_size,
@@ -146,6 +152,31 @@ def track_video(args: argparse.Namespace) -> None:
             iou_threshold=args.iou_threshold,
             max_age=args.max_age,
             min_hits=args.min_hits,
+            max_frames=args.max_frames,
+        )
+    )
+    print(json.dumps(report, indent=2))
+
+
+def track_video_command(args: argparse.Namespace) -> None:
+    """Run the cattle tracker over one input video with explicit output paths."""
+    manifest = args.manifest if args.evaluate else None
+    report = run_track_video(
+        TrackVideoConfig(
+            input_path=args.input,
+            detections_path=args.detections,
+            annotated_path=args.output,
+            model_path=args.model,
+            report_path=args.report,
+            manifest_path=manifest,
+            sequence_name=args.sequence_name,
+            confidence=args.confidence,
+            image_size=args.image_size,
+            device=args.device,
+            iou_threshold=args.iou_threshold,
+            max_age=args.max_age,
+            min_hits=args.min_hits,
+            max_frames=args.max_frames,
         )
     )
     print(json.dumps(report, indent=2))
@@ -266,43 +297,89 @@ def build_parser() -> argparse.ArgumentParser:
     )
     detector_parser.set_defaults(func=train_cattle_detector)
 
+    def add_common_tracking_flags(sub: argparse.ArgumentParser) -> None:
+        sub.add_argument("--model", type=Path, default=CATTLE_DETECTOR_MODEL_PATH)
+        sub.add_argument("--confidence", type=float, default=0.25)
+        sub.add_argument("--image-size", type=int, default=512)
+        sub.add_argument("--device", default="auto")
+        sub.add_argument("--iou-threshold", type=float, default=0.3)
+        sub.add_argument("--max-age", type=int, default=5)
+        sub.add_argument("--min-hits", type=int, default=3)
+        sub.add_argument(
+            "--max-frames",
+            type=int,
+            default=None,
+            help="process only the first N frames (useful for a short demo clip)",
+        )
+        sub.add_argument(
+            "--manifest",
+            type=Path,
+            default=CATTLE_TRACKING_MANIFEST_PATH,
+            help="ground-truth manifest for scoring; see --no-evaluate",
+        )
+        sub.add_argument(
+            "--no-evaluate",
+            dest="evaluate",
+            action="store_false",
+            default=True,
+            help="skip scoring against the ground-truth manifest",
+        )
+        sub.add_argument("--report", type=Path, default=CATTLE_TRACKING_REPORT_PATH)
+
     track_parser = subparsers.add_parser(
         "track",
-        help="run the cattle tracker over one CattleEyeView sequence",
+        help="run the cattle tracker over one named CattleEyeView sequence",
     )
     track_parser.add_argument("sequence", help='e.g. "01.mp4"')
-    track_parser.add_argument("--model", type=Path, default=CATTLE_DETECTOR_MODEL_PATH)
-    track_parser.add_argument("--confidence", type=float, default=0.25)
-    track_parser.add_argument("--image-size", type=int, default=512)
-    track_parser.add_argument("--device", default="auto")
-    track_parser.add_argument("--iou-threshold", type=float, default=0.3)
-    track_parser.add_argument("--max-age", type=int, default=5)
-    track_parser.add_argument("--min-hits", type=int, default=3)
     track_parser.add_argument(
-        "--manifest",
+        "--annotated",
         type=Path,
-        default=CATTLE_TRACKING_MANIFEST_PATH,
-        help="ground-truth manifest for scoring; see --no-evaluate",
+        default=None,
+        help="optional MP4 path for the annotated overlay video",
     )
-    track_parser.add_argument(
-        "--no-evaluate",
-        dest="evaluate",
-        action="store_false",
-        default=True,
-        help="skip scoring against the ground-truth manifest",
+    add_common_tracking_flags(track_parser)
+    track_parser.set_defaults(func=track_sequence_command)
+
+    track_video_parser = subparsers.add_parser(
+        "track-video",
+        help="track one input video and write explicit detection/overlay outputs",
     )
-    track_parser.add_argument(
-        "--report",
+    track_video_parser.add_argument(
+        "--input",
         type=Path,
-        default=CATTLE_TRACKING_REPORT_PATH,
+        required=True,
+        help="input video file or extracted-frame directory",
     )
-    track_parser.set_defaults(func=track_video)
+    track_video_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="output MP4 path for the annotated overlay video",
+    )
+    track_video_parser.add_argument(
+        "--detections",
+        type=Path,
+        required=True,
+        help="output track records (.jsonl or .csv)",
+    )
+    track_video_parser.add_argument(
+        "--sequence-name",
+        default=None,
+        help="manifest key for scoring; defaults to the input file/dir name",
+    )
+    add_common_tracking_flags(track_video_parser)
+    track_video_parser.set_defaults(func=track_video_command)
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except (FileNotFoundError, ValueError) as error:
+        # Bad paths and invalid options are user errors, not crashes: report the
+        # message plainly instead of a traceback.
+        raise SystemExit(f"error: {error}") from error
 
 
 if __name__ == "__main__":

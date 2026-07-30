@@ -21,11 +21,15 @@ class SequenceEvaluation:
     frames_evaluated: int
     ground_truth_tracks: int
     predicted_tracks: int
+    ground_truth_detections: int
     matched_detections: int
     missed_detections: int
     false_positives: int
     id_switches: int
     fragmentations: int
+    matched_track_recall: float
+    mostly_tracked: int
+    mostly_tracked_ratio: float
     mean_iou: float
 
 
@@ -87,6 +91,8 @@ def evaluate_sequence(
     missed_detections = 0
     false_positives = 0
     iou_values: list[float] = []
+    gt_frames_by_uid: dict[str, int] = defaultdict(int)
+    matched_frames_by_uid: dict[str, int] = defaultdict(int)
 
     for frame_index in all_frames:
         gt_entries = gt_by_frame.get(frame_index, [])
@@ -98,8 +104,12 @@ def evaluate_sequence(
         missed_detections += len(gt_entries) - len(matches)
         false_positives += len(pred_entries) - len(matches)
 
+        for track_uid, _ in gt_entries:
+            gt_frames_by_uid[track_uid] += 1
+
         for track_uid, track_id, iou in matches:
             iou_values.append(iou)
+            matched_frames_by_uid[track_uid] += 1
             previous_id = last_matched_id.get(track_uid)
             if previous_id is not None and previous_id != track_id:
                 id_switches += 1
@@ -119,16 +129,36 @@ def evaluate_sequence(
         track_id for entries in pred_by_frame.values() for track_id, _ in entries
     }
 
+    ground_truth_detections = sum(gt_frames_by_uid.values())
+    # A trajectory is "mostly tracked" if at least 80% of its visible frames were
+    # matched to some predicted track (the standard MOT threshold).
+    mostly_tracked = sum(
+        1
+        for uid, visible in gt_frames_by_uid.items()
+        if visible > 0 and matched_frames_by_uid[uid] / visible >= 0.8
+    )
+    total_gt_tracks = len(ground_truth_uids)
+
     return SequenceEvaluation(
         sequence=ground_truth_records[0]["sequence"] if ground_truth_records else "",
         frames_evaluated=len(all_frames),
-        ground_truth_tracks=len(ground_truth_uids),
+        ground_truth_tracks=total_gt_tracks,
         predicted_tracks=len(predicted_ids),
+        ground_truth_detections=ground_truth_detections,
         matched_detections=matched_detections,
         missed_detections=missed_detections,
         false_positives=false_positives,
         id_switches=id_switches,
         fragmentations=fragmentations,
+        matched_track_recall=(
+            round(matched_detections / ground_truth_detections, 4)
+            if ground_truth_detections
+            else 0.0
+        ),
+        mostly_tracked=mostly_tracked,
+        mostly_tracked_ratio=(
+            round(mostly_tracked / total_gt_tracks, 4) if total_gt_tracks else 0.0
+        ),
         mean_iou=round(float(np.mean(iou_values)), 6) if iou_values else 0.0,
     )
 
@@ -158,14 +188,31 @@ def evaluate_manifest(
     total_matched = sum(item["matched_detections"] for item in sequences.values())
     total_missed = sum(item["missed_detections"] for item in sequences.values())
     total_false_positives = sum(item["false_positives"] for item in sequences.values())
+    total_gt_detections = sum(
+        item["ground_truth_detections"] for item in sequences.values()
+    )
+    total_mostly_tracked = sum(item["mostly_tracked"] for item in sequences.values())
+    total_gt_tracks = sum(item["ground_truth_tracks"] for item in sequences.values())
 
     return {
         "sequences": sequences,
         "aggregate": {
             "id_switches": total_id_switches,
             "fragmentations": total_fragmentations,
+            "ground_truth_detections": total_gt_detections,
             "matched_detections": total_matched,
             "missed_detections": total_missed,
             "false_positives": total_false_positives,
+            "matched_track_recall": (
+                round(total_matched / total_gt_detections, 4)
+                if total_gt_detections
+                else 0.0
+            ),
+            "mostly_tracked": total_mostly_tracked,
+            "mostly_tracked_ratio": (
+                round(total_mostly_tracked / total_gt_tracks, 4)
+                if total_gt_tracks
+                else 0.0
+            ),
         },
     }

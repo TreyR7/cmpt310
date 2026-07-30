@@ -28,3 +28,9 @@ CATTLE_TRACKING_MANIFEST_PATH = (
 CATTLE_TRACKING_REPORT_PATH = (
     ARTIFACTS_DIR / "reports" / "cattle_tracking" / "metrics.json"
 )
+CATTLE_TRACKING_METRICS_PATH = (
+    ARTIFACTS_DIR / "reports" / "cattle_tracking" / "step2_metrics.json"
+)
+TRACKING_DIR = ARTIFACTS_DIR / "tracking"
+CATTLE_TRACKING_DEMO_PATH = TRACKING_DIR / "demo_tracks.json"
+CATTLE_TRACKING_DEMO_VIDEO_PATH = TRACKING_DIR / "01_demo.mp4"

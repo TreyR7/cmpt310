@@ -117,19 +117,46 @@ Those generated files are intentionally ignored by Git.
 ### Track cattle across frames
 
 Run the SORT-style tracker (Kalman filter and Hungarian matching) over one
-CattleEyeView sequence's extracted frames:
+CattleEyeView sequence's extracted frames, whose numbering matches the
+ground-truth manifest:
 
 ```powershell
 livestock-gate track 01.mp4
 ```
 
-The tracker turns the detector's per-frame boxes into persistent track IDs,
-then scores the result against the normalized ground-truth manifest produced
-by `livestock-gate dataset export` (identity switches, track fragmentation,
-missed detections, and false positives). Pass `--no-evaluate` to skip
-scoring, or a different sequence name (`02.mp4`, `03.mp4`, ...) to track
-another video. A machine-readable report, including every predicted box, is
-written under `artifacts/reports/cattle_tracking/`.
+The tracker turns the detector's per-frame boxes into persistent track IDs and
+moves each track through an explicit lifecycle (`tentative` -> `confirmed` ->
+`lost` -> `removed`). It then scores the result against the normalized
+ground-truth manifest produced by `livestock-gate dataset export`, reporting
+identity switches, track fragmentation, matched-track recall, mostly-tracked
+trajectories, and processing FPS. Pass `--no-evaluate` to skip scoring, add
+`--annotated out.mp4` to also render an overlay, or `--max-frames N` for a
+short demo. A machine-readable report and a JSONL track export are written
+under `artifacts/reports/cattle_tracking/`.
+
+To track an arbitrary input video (or frame directory) with explicit output
+paths and an annotated overlay, use `track-video`:
+
+```powershell
+livestock-gate track-video `
+    --input data\raw\cattle_eye_view\videos\01.mp4 `
+    --output artifacts\tracking\01_tracked.mp4 `
+    --detections artifacts\tracking\01_tracks.jsonl
+```
+
+Each exported record follows the shared schema (`video`, `frame_index`,
+`timestamp_seconds`, `track_id`, `label`, `confidence`, `bbox_xyxy`,
+`track_state`) and can be written as `.jsonl` or `.csv` by choosing the
+`--detections` extension.
+
+Reproduce the reported Step 2 metrics across the held-out test sequences and
+build the frontend demo payload:
+
+```powershell
+python scripts/evaluate_tracking.py 01.mp4 05.mp4 07.mp4 10.mp4
+python scripts/build_tracking_demo.py artifacts/tracking/01_demo.jsonl `
+    artifacts/tracking/demo_tracks.json --video data/raw/cattle_eye_view/videos/01.mp4
+```
 
 ## Backend setup
 
@@ -142,8 +169,12 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The optional deep-learning and tracking dependencies from the full project
-specification can be installed with:
+This installs the tracker as well: its Kalman filter (`filterpy`) and Hungarian
+assignment (`scipy`) are core dependencies, so `livestock-gate track` and the
+full test suite work without the deep-learning stack.
+
+Training the detector, or running inference with it, additionally needs the
+optional vision extra (PyTorch and Ultralytics):
 
 ```powershell
 python -m pip install -e ".[dev,vision]"
@@ -206,9 +237,16 @@ The dashboard uses two read-only integration endpoints:
 - `GET /api/detection/examples/<id>/image` serves an allowlisted local frame.
 - `POST /api/detection/examples/<id>/predict` returns normalized cattle boxes,
   confidence scores, counts, and inference time.
+- `GET /api/tracking/overview` reports the tuned tracker configuration and the
+  aggregate and per-sequence identity metrics.
+- `GET /api/tracking/demo` serves a compact, codec-free track payload the
+  client animates on a canvas.
+- `GET /api/tracking/video` serves the annotated overlay MP4 for download.
 
 The frontend includes a detector lab for comparing AI predictions with human
-annotations on held-out examples. Tracking, virtual-gate counting,
+annotations on held-out examples, and a tracking section that explains the
+Kalman + Hungarian pipeline, animates persistent IDs and motion trails from
+the exported tracks, and shows the identity metrics. Virtual-gate counting,
 asynchronous video jobs, and result playback are laid out with acceptance
 criteria in [the implementation roadmap](docs/roadmap.md).
 

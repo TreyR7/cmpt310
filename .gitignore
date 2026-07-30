@@ -33,7 +33,16 @@ artifacts/predictions/*
 !artifacts/predictions/.gitkeep
 artifacts/reports/*
 !artifacts/reports/.gitkeep
+!artifacts/reports/cattle_tracking/
+artifacts/reports/cattle_tracking/*
+# Small tracking metrics files are committed; per-frame exports are not.
+!artifacts/reports/cattle_tracking/step2_metrics.json
 artifacts/training/
+
+# Generated tracking videos and per-frame track exports stay out of Git.
+# The compact demo payload the frontend animates is small enough to keep.
+artifacts/tracking/*
+!artifacts/tracking/demo_tracks.json
 
 # Pretrained checkpoints downloaded by Ultralytics at runtime
 yolo*.pt

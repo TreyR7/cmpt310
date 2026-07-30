@@ -7,6 +7,10 @@ from werkzeug.utils import secure_filename
 
 from smart_livestock_gate import __version__
 from smart_livestock_gate.api.status import build_project_status
+from smart_livestock_gate.api.tracking import (
+    build_tracking_overview,
+    render_sequence_frame,
+)
 from smart_livestock_gate.baseline.classifier import (
     evaluate_model,
     load_dataset,
@@ -19,6 +23,9 @@ from smart_livestock_gate.config import (
     CATTLE_DETECTOR_REPORT_PATH,
     CATTLE_EYE_VIEW_PATH,
     CATTLE_EYE_VIEW_REPORT_PATH,
+    CATTLE_TRACKING_DEMO_PATH,
+    CATTLE_TRACKING_DEMO_VIDEO_PATH,
+    CATTLE_TRACKING_METRICS_PATH,
     DEFAULT_DATASET_PATH,
     DEFAULT_MODEL_PATH,
 )
@@ -54,6 +61,7 @@ def create_app() -> Flask:
                 CATTLE_EYE_VIEW_REPORT_PATH,
                 CATTLE_DETECTOR_MODEL_PATH,
                 CATTLE_DETECTOR_REPORT_PATH,
+                CATTLE_TRACKING_METRICS_PATH,
             )
         )
 
@@ -90,6 +98,52 @@ def create_app() -> Flask:
             app.logger.exception("Detection example inference failed")
             return jsonify({"error": str(error)}), 500
         return jsonify(prediction)
+
+    @app.get("/api/tracking/overview")
+    def tracking_overview():
+        return jsonify(
+            build_tracking_overview(
+                CATTLE_TRACKING_METRICS_PATH,
+                CATTLE_TRACKING_DEMO_PATH,
+                CATTLE_TRACKING_DEMO_VIDEO_PATH,
+            )
+        )
+
+    @app.get("/api/tracking/demo")
+    def tracking_demo():
+        if not CATTLE_TRACKING_DEMO_PATH.is_file():
+            return jsonify({"error": "Tracking demo has not been generated"}), 404
+        return send_file(CATTLE_TRACKING_DEMO_PATH, mimetype="application/json")
+
+    @app.get("/api/tracking/frames/<sequence>/<int:frame_index>")
+    def tracking_frame(sequence: str, frame_index: int):
+        jpeg = render_sequence_frame(
+            CATTLE_EYE_VIEW_PATH,
+            sequence,
+            frame_index,
+            width=request.args.get("width", default=640, type=int),
+        )
+        if jpeg is None:
+            return jsonify({"error": "Frame not available"}), 404
+        response = app.response_class(jpeg, mimetype="image/jpeg")
+        response.headers["Cache-Control"] = "public, max-age=3600"
+        return response
+
+    @app.get("/api/tracking/video")
+    def tracking_video():
+        if not CATTLE_TRACKING_DEMO_VIDEO_PATH.is_file():
+            return jsonify({"error": "Annotated video has not been generated"}), 404
+        # Force an attachment: the HTML "download" attribute is ignored on
+        # cross-origin links (the client runs on a different port), and this
+        # OpenCV mp4v file cannot be decoded by browsers for inline playback.
+        return send_file(
+            CATTLE_TRACKING_DEMO_VIDEO_PATH,
+            mimetype="video/mp4",
+            conditional=True,
+            max_age=3600,
+            as_attachment=True,
+            download_name="cattle_tracking_annotated.mp4",
+        )
 
     @app.post("/api/train")
     def train():

@@ -37,12 +37,17 @@ class SortTracker:
         detections: list[dict],
         frame_index: int,
         timestamp: float | None = None,
+        *,
+        video: str = "",
+        include_lost: bool = False,
     ) -> list[TrackedBox]:
         """Advance every track one frame and associate it with new detections.
 
         ``detections`` is a list of {"box": [x1, y1, x2, y2], "confidence": float}
         in a consistent coordinate space (pixel or normalized, caller's choice).
-        Returns confirmed tracks only (see ``SortTrackerConfig.min_hits``).
+        Returns confirmed tracks only by default. ``include_lost=True`` also
+        returns tracks that missed this frame but are still recoverable, so the
+        annotated video can keep drawing a box through a brief occlusion.
         """
         predicted_boxes = np.array(
             [track.predict() for track in self._tracks], dtype=np.float32
@@ -75,15 +80,16 @@ class SortTracker:
             )
 
         max_age = self._config.max_age
+        min_hits = self._config.min_hits
         self._tracks = [
             track for track in self._tracks if track.time_since_update <= max_age
         ]
 
         results = []
-        min_hits = self._config.min_hits
         for track in self._tracks:
-            is_confirmed = track.hits >= min_hits or track.age <= min_hits
-            if track.time_since_update == 0 and is_confirmed:
+            state = track.lifecycle_state(min_hits, max_age)
+            emit = state == "confirmed" or (include_lost and state == "lost")
+            if emit:
                 results.append(
                     TrackedBox(
                         frame_index=frame_index,
@@ -91,6 +97,9 @@ class SortTracker:
                         track_id=track.track_id,
                         box_xyxy=track.xyxy.tolist(),
                         confidence=track.confidence,
+                        video=video,
+                        label="cattle",
+                        track_state=state,
                     )
                 )
         return results

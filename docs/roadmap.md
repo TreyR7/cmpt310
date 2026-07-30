@@ -32,26 +32,37 @@ different computer.
 Acceptance criteria: a fresh authorized installation can prepare data, train a
 detector, and reproduce the reported test metrics using documented commands.
 
-## Milestone 2: tracking and identity evaluation (mostly implemented)
+## Milestone 2: tracking and identity evaluation (implemented)
 
 1. Connect detector outputs to a multi-object tracker. Implemented as a
    SORT-style tracker (Kalman filter and Hungarian/IoU matching) in
    `src/smart_livestock_gate/tracking/`.
-2. Normalize every output to a shared schema: frame, bounding box, confidence,
-   track ID, and timestamp. Implemented as `TrackedBox` in `tracking/schema.py`.
-3. Evaluate persistent identities against the normalized CattleEyeView tracking
-   manifest, including identity switches and track fragmentation. Implemented
-   in `tracking/evaluate.py` and exposed via `livestock-gate track <sequence>`.
-4. Export a short annotated test clip for qualitative review. Not yet
-   implemented; the tracker currently reports metrics only, with no drawn
-   overlay video.
+2. Normalize every output to the shared Step 2 schema: video, frame,
+   timestamp, track ID, label, confidence, box, and lifecycle state. Implemented
+   as `TrackedBox` in `tracking/schema.py`, exportable as JSONL or CSV.
+3. Move each track through an explicit lifecycle
+   (`tentative` -> `confirmed` -> `lost` -> `removed`) with tunable confidence,
+   IoU, `min_hits`, and `max_age` parameters saved alongside results.
+4. Evaluate persistent identities against the normalized CattleEyeView tracking
+   manifest: identity switches, fragmentation, matched-track recall,
+   mostly-tracked trajectories, and FPS. Implemented in `tracking/evaluate.py`
+   and exposed via `livestock-gate track <sequence>`.
+5. Render an annotated overlay MP4 (boxes, IDs, confidence, trails, frame,
+   FPS) via `tracking/overlay.py` and `livestock-gate track-video`.
+6. Expose results to the frontend: an animated, codec-free tracking demo and
+   the identity metrics.
 
 Acceptance criteria: each visible animal receives a stable ID across frames,
 and tracking failures are measured rather than judged only by a demo video.
-The measurement half is done; a first real run reported 41 predicted tracks
-against 34 ground-truth cattle for one sequence, with 4 identity switches and
-1 fragmentation, so the remaining tracker-quality work is tuning and/or an
-appearance-based re-identification cost, not the measurement pipeline itself.
+On four held-out test sequences (disjoint from the 09.mp4 clip used during
+development), the default configuration reaches 78.6% matched-track recall,
+recovers 179/221 ground-truth trajectories as mostly-tracked, and runs at
+~21 FPS. Calm single-file sequences are near-perfect (05.mp4: 96.8% recall, 1
+identity switch); the dense, occluded crowd in 01.mp4 is the main failure mode
+(58.6% recall, 191 identity switches), most of it caused by missed detections
+under top-down occlusion rather than the association step. The next tracker
+improvement is therefore an appearance-based re-identification cost, not more
+measurement plumbing.
 
 ## Milestone 3: virtual-gate counting
 

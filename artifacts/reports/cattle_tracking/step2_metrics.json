@@ -1,0 +1,119 @@
+{
+  "config": {
+    "confidence": 0.25,
+    "iou_threshold": 0.3,
+    "min_hits": 3,
+    "max_age": 5,
+    "image_size": 512
+  },
+  "evaluation_sequences": [
+    "01.mp4",
+    "05.mp4",
+    "07.mp4",
+    "10.mp4"
+  ],
+  "note": "Held-out test-split sequences, disjoint from 09.mp4 used during development tuning. Frame numbering matches the ground-truth manifest.",
+  "aggregate": {
+    "ground_truth_tracks": 221,
+    "ground_truth_detections": 6310,
+    "matched_detections": 4958,
+    "missed_detections": 1352,
+    "false_positives": 736,
+    "id_switches": 202,
+    "fragmentations": 172,
+    "matched_track_recall": 0.7857,
+    "mostly_tracked": 179,
+    "mostly_tracked_ratio": 0.81,
+    "mean_processing_fps": 21.26
+  },
+  "per_sequence": {
+    "01.mp4": {
+      "sequence": "01.mp4",
+      "frames_evaluated": 564,
+      "ground_truth_tracks": 49,
+      "predicted_tracks": 130,
+      "ground_truth_detections": 3019,
+      "matched_detections": 1768,
+      "missed_detections": 1251,
+      "false_positives": 502,
+      "id_switches": 191,
+      "fragmentations": 166,
+      "matched_track_recall": 0.5856,
+      "mostly_tracked": 14,
+      "mostly_tracked_ratio": 0.2857,
+      "mean_iou": 0.733452,
+      "runtime": {
+        "frames_processed": 1226,
+        "source_fps": 25.0,
+        "processing_fps": 21.12,
+        "detection_fps": 42.63
+      }
+    },
+    "05.mp4": {
+      "sequence": "05.mp4",
+      "frames_evaluated": 727,
+      "ground_truth_tracks": 36,
+      "predicted_tracks": 45,
+      "ground_truth_detections": 1229,
+      "matched_detections": 1189,
+      "missed_detections": 40,
+      "false_positives": 73,
+      "id_switches": 1,
+      "fragmentations": 2,
+      "matched_track_recall": 0.9675,
+      "mostly_tracked": 35,
+      "mostly_tracked_ratio": 0.9722,
+      "mean_iou": 0.859083,
+      "runtime": {
+        "frames_processed": 1756,
+        "source_fps": 25.0,
+        "processing_fps": 21.14,
+        "detection_fps": 46.79
+      }
+    },
+    "07.mp4": {
+      "sequence": "07.mp4",
+      "frames_evaluated": 679,
+      "ground_truth_tracks": 75,
+      "predicted_tracks": 86,
+      "ground_truth_detections": 1209,
+      "matched_detections": 1195,
+      "missed_detections": 14,
+      "false_positives": 118,
+      "id_switches": 3,
+      "fragmentations": 1,
+      "matched_track_recall": 0.9884,
+      "mostly_tracked": 75,
+      "mostly_tracked_ratio": 1.0,
+      "mean_iou": 0.796495,
+      "runtime": {
+        "frames_processed": 1886,
+        "source_fps": 25.0,
+        "processing_fps": 21.63,
+        "detection_fps": 48.68
+      }
+    },
+    "10.mp4": {
+      "sequence": "10.mp4",
+      "frames_evaluated": 487,
+      "ground_truth_tracks": 61,
+      "predicted_tracks": 67,
+      "ground_truth_detections": 853,
+      "matched_detections": 806,
+      "missed_detections": 47,
+      "false_positives": 43,
+      "id_switches": 7,
+      "fragmentations": 3,
+      "matched_track_recall": 0.9449,
+      "mostly_tracked": 55,
+      "mostly_tracked_ratio": 0.9016,
+      "mean_iou": 0.809337,
+      "runtime": {
+        "frames_processed": 1440,
+        "source_fps": 25.0,
+        "processing_fps": 21.15,
+        "detection_fps": 45.77
+      }
+    }
+  }
+}

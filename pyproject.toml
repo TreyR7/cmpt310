@@ -10,12 +10,14 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "Flask>=3.0,<4",
+    "filterpy>=1.4,<2",
     "flask-cors>=4.0,<7",
     "joblib>=1.3,<2",
     "numpy>=1.26,<3",
     "opencv-python>=4.8,<5",
     "openpyxl>=3.1,<4",
     "scikit-learn>=1.4,<2",
+    "scipy>=1.12,<2",
 ]
 
 [project.optional-dependencies]
@@ -24,12 +26,13 @@ dev = [
     "pytest-cov>=5,<7",
     "ruff>=0.8,<1",
 ]
+# The tracker's Kalman filter (filterpy) and Hungarian assignment (scipy) are
+# imported at module load, so they are core dependencies. Only the detector's
+# deep-learning stack, imported lazily, stays optional here.
 vision = [
-    "filterpy>=1.4,<2",
     "matplotlib>=3.8,<4",
     "pandas>=2.2,<3",
     "scikit-image>=0.23,<1",
-    "scipy>=1.12,<2",
     "torch>=2.2,<3",
     "torchvision>=0.17,<1",
     "ultralytics>=8.2,<9",
