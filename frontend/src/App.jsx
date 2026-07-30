@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
+import TrackingSection from "./Tracking.jsx";
+import { sequenceLabel } from "./sequences.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const formatter = new Intl.NumberFormat();
@@ -35,6 +37,11 @@ const NEXT_STEPS = {
     title: "Connect detection to tracking and counting",
     detail: "The detector is ready; persistent IDs and line-crossing inference come next.",
   },
+  build_counting: {
+    eyebrow: "Next AI milestone",
+    title: "Add the virtual gate and counting",
+    detail: "Detection and tracking are evaluated. Step 3 counts confirmed tracks that cross a directional line.",
+  },
 };
 
 function Badge({ ready, children }) {
@@ -44,7 +51,7 @@ function Badge({ ready, children }) {
 function Metric({ label, value }) {
   return (
     <article className="metric-card">
-      <strong>{value == null ? "—" : formatter.format(value)}</strong>
+      <strong>{value == null ? "n/a" : formatter.format(value)}</strong>
       <span>{label}</span>
     </article>
   );
@@ -84,7 +91,7 @@ function DetectionExampleCard({ example, modelReady }) {
       <div className="example-image">
         <img
           src={`${API_BASE}${example.image_url}`}
-          alt={`CattleEyeView frame ${example.frame} from ${example.sequence}`}
+          alt={`CattleEyeView frame ${example.frame} from ${sequenceLabel(example.sequence)}`}
         />
         <div className="box-layer" aria-hidden="true">
           {boxes.map((detection, index) => {
@@ -112,8 +119,8 @@ function DetectionExampleCard({ example, modelReady }) {
       <div className="example-content">
         <div className="example-meta">
           <div>
-            <strong>{example.sequence}</strong>
-            <span>{example.frame}</span>
+            <strong>{sequenceLabel(example.sequence)}</strong>
+            <span>frame {example.frame}</span>
           </div>
           {prediction && (
             <span className="inference-time">{prediction.inference_ms} ms</span>
@@ -121,7 +128,7 @@ function DetectionExampleCard({ example, modelReady }) {
         </div>
         <div className="example-counts">
           <span>Annotated: {example.ground_truth_count}</span>
-          <span>Detected: {prediction?.count ?? "—"}</span>
+          <span>Detected: {prediction?.count ?? "n/a"}</span>
         </div>
         {error && <p className="example-error">{error}</p>}
         <div className="example-actions">
@@ -304,8 +311,10 @@ function App() {
                   <p className="eyebrow">Held-out test frames</p>
                   <h2 id="examples-heading">See what the detector sees</h2>
                   <p className="section-copy">
-                    Run the trained model on examples it did not train on. Green boxes are
-                    AI predictions; amber boxes are the human annotations used for comparison.
+                    Each example is one still frame extracted from a held-out gate video,
+                    so the detector is scored on footage it never trained on. Green boxes
+                    are AI predictions; amber boxes are the human annotations used for
+                    comparison.
                   </p>
                 </div>
                 <Badge ready={detector?.ready}>
@@ -318,7 +327,7 @@ function App() {
                   <Metric label="test precision" value={Math.round(detectorMetrics.precision * 1000) / 10} />
                   <Metric label="test recall" value={Math.round(detectorMetrics.recall * 1000) / 10} />
                   <Metric label="mAP at 50% IoU" value={Math.round(detectorMetrics.map50 * 1000) / 10} />
-                  <Metric label="mAP 50–95" value={Math.round(detectorMetrics.map50_95 * 1000) / 10} />
+                  <Metric label="mAP 50-95" value={Math.round(detectorMetrics.map50_95 * 1000) / 10} />
                 </div>
               )}
 
@@ -332,6 +341,8 @@ function App() {
                 ))}
               </div>
             </section>
+
+            <TrackingSection />
 
             <section className="section-block" aria-labelledby="explanation-heading">
               <div className="section-heading compact">
