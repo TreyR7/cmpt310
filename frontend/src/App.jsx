@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import TrackingSection from "./Tracking.jsx";
-import { sequenceLabel } from "./sequences.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const formatter = new Intl.NumberFormat();
@@ -57,127 +56,33 @@ function Metric({ label, value }) {
   );
 }
 
-function DetectionExampleCard({ example, modelReady }) {
-  const [prediction, setPrediction] = useState(null);
-  const [showTruth, setShowTruth] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const runDetection = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch(
-        `${API_BASE}/api/detection/examples/${example.id}/predict`,
-        { method: "POST" },
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Detection failed");
-      setPrediction(data);
-      setShowTruth(false);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const boxes = showTruth
-    ? example.ground_truth.map((item) => ({ ...item, confidence: null }))
-    : prediction?.detections || [];
-
-  return (
-    <article className="example-card">
-      <div className="example-image">
-        <img
-          src={`${API_BASE}${example.image_url}`}
-          alt={`CattleEyeView frame ${example.frame} from ${sequenceLabel(example.sequence)}`}
-        />
-        <div className="box-layer" aria-hidden="true">
-          {boxes.map((detection, index) => {
-            const [left, top, right, bottom] = detection.box;
-            return (
-              <span
-                className={`detection-box ${showTruth ? "truth" : "prediction"}`}
-                key={`${left}-${top}-${index}`}
-                style={{
-                  left: `${left * 100}%`,
-                  top: `${top * 100}%`,
-                  width: `${(right - left) * 100}%`,
-                  height: `${(bottom - top) * 100}%`,
-                }}
-              >
-                <span className="box-label">
-                  {detection.label}
-                  {detection.confidence != null && ` ${Math.round(detection.confidence * 100)}%`}
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-      <div className="example-content">
-        <div className="example-meta">
-          <div>
-            <strong>{sequenceLabel(example.sequence)}</strong>
-            <span>frame {example.frame}</span>
-          </div>
-          {prediction && (
-            <span className="inference-time">{prediction.inference_ms} ms</span>
-          )}
-        </div>
-        <div className="example-counts">
-          <span>Annotated: {example.ground_truth_count}</span>
-          <span>Detected: {prediction?.count ?? "n/a"}</span>
-        </div>
-        {error && <p className="example-error">{error}</p>}
-        <div className="example-actions">
-          <button onClick={runDetection} disabled={!modelReady || loading}>
-            {loading ? "Running AI…" : prediction ? "Run again" : "Run detector"}
-          </button>
-          <button
-            className="secondary-button"
-            onClick={() => setShowTruth((current) => !current)}
-          >
-            {showTruth ? "Show prediction" : "Show annotation"}
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function App() {
   const [dashboard, setDashboard] = useState({
     loading: true,
     error: "",
     health: null,
     status: null,
-    examples: [],
   });
 
   const refresh = useCallback(async (signal) => {
     setDashboard((current) => ({ ...current, loading: true, error: "" }));
     try {
-      const [healthResponse, statusResponse, examplesResponse] = await Promise.all([
+      const [healthResponse, statusResponse] = await Promise.all([
         fetch(`${API_BASE}/api/health`, { signal }),
         fetch(`${API_BASE}/api/status`, { signal }),
-        fetch(`${API_BASE}/api/detection/examples`, { signal }),
       ]);
-      if (!healthResponse.ok || !statusResponse.ok || !examplesResponse.ok) {
+      if (!healthResponse.ok || !statusResponse.ok) {
         throw new Error("The backend returned an unexpected response.");
       }
-      const [health, status, examplePayload] = await Promise.all([
+      const [health, status] = await Promise.all([
         healthResponse.json(),
         statusResponse.json(),
-        examplesResponse.json(),
       ]);
       setDashboard({
         loading: false,
         error: "",
         health,
         status,
-        examples: examplePayload.examples,
       });
     } catch (error) {
       if (error.name !== "AbortError") {
@@ -186,7 +91,6 @@ function App() {
           error: `Cannot reach the API at ${API_BASE}. Start the Flask backend and try again.`,
           health: null,
           status: null,
-          examples: [],
         });
       }
     }
@@ -200,8 +104,6 @@ function App() {
 
   const status = dashboard.status;
   const summary = status?.dataset.summary || {};
-  const detector = status?.models.cattle_detector;
-  const detectorMetrics = detector?.test_metrics || {};
   const action = NEXT_STEPS[status?.pipeline.next_step] || NEXT_STEPS.install_dataset;
   const pipeline = [
     ["Dataset", status?.pipeline.dataset_ready],
@@ -287,60 +189,6 @@ function App() {
                 <p>{action.detail}</p>
               </section>
             </div>
-
-            <section className="section-block" aria-labelledby="tasks-heading">
-              <div className="section-heading compact">
-                <div>
-                  <p className="eyebrow">Annotation coverage</p>
-                  <h2 id="tasks-heading">Available training tasks</h2>
-                </div>
-              </div>
-              <div className="task-grid">
-                {Object.entries(status.training_tasks).map(([name, task]) => (
-                  <article className="task-card" key={name}>
-                    <span>{name.replaceAll("_", " ")}</span>
-                    <Badge ready={task.prepared}>{task.prepared ? "Prepared" : "Labels available"}</Badge>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="section-block detection-lab" aria-labelledby="examples-heading">
-              <div className="section-heading detection-heading">
-                <div>
-                  <p className="eyebrow">Held-out test frames</p>
-                  <h2 id="examples-heading">See what the detector sees</h2>
-                  <p className="section-copy">
-                    Each example is one still frame extracted from a held-out gate video,
-                    so the detector is scored on footage it never trained on. Green boxes
-                    are AI predictions; amber boxes are the human annotations used for
-                    comparison.
-                  </p>
-                </div>
-                <Badge ready={detector?.ready}>
-                  {detector?.ready ? `${detector.architecture} ready` : "Training required"}
-                </Badge>
-              </div>
-
-              {detector?.ready && Object.keys(detectorMetrics).length > 0 && (
-                <div className="model-metrics">
-                  <Metric label="test precision" value={Math.round(detectorMetrics.precision * 1000) / 10} />
-                  <Metric label="test recall" value={Math.round(detectorMetrics.recall * 1000) / 10} />
-                  <Metric label="mAP at 50% IoU" value={Math.round(detectorMetrics.map50 * 1000) / 10} />
-                  <Metric label="mAP 50-95" value={Math.round(detectorMetrics.map50_95 * 1000) / 10} />
-                </div>
-              )}
-
-              <div className="example-grid">
-                {dashboard.examples.map((example) => (
-                  <DetectionExampleCard
-                    example={example}
-                    key={example.id}
-                    modelReady={detector?.ready}
-                  />
-                ))}
-              </div>
-            </section>
 
             <TrackingSection />
 
